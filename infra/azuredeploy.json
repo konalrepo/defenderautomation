@@ -1,0 +1,278 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "8583522430800616474"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "automationAccountName": {
+      "type": "string",
+      "defaultValue": "aa-defender-tagging",
+      "metadata": {
+        "description": "Name of the Automation account."
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "[format('stdeftags{0}', uniqueString(resourceGroup().id))]",
+      "minLength": 3,
+      "maxLength": 24,
+      "metadata": {
+        "description": "Globally unique storage account name (3-24 lowercase letters/digits)."
+      }
+    },
+    "containerName": {
+      "type": "string",
+      "defaultValue": "defender-tags",
+      "metadata": {
+        "description": "Blob container that holds the tag list workbook."
+      }
+    },
+    "scheduleName": {
+      "type": "string",
+      "defaultValue": "Every-2-Hours",
+      "metadata": {
+        "description": "Name of the recurring schedule."
+      }
+    },
+    "scheduleTimeZone": {
+      "type": "string",
+      "defaultValue": "UTC",
+      "metadata": {
+        "description": "IANA or Windows time zone ID for the schedule."
+      }
+    },
+    "baseTime": {
+      "type": "string",
+      "defaultValue": "[utcNow('u')]",
+      "metadata": {
+        "description": "Deployment timestamp - do not set; used to compute the schedule start time."
+      }
+    },
+    "runbookContentUri": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Raw URL of Tag-DefenderServers.ps1 (e.g. GitHub raw). Leave empty to import the runbook locally with scripts/Deploy-Azure.ps1 instead."
+      }
+    },
+    "allowSharedKeyAccess": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Allow storage account key access. Set false to harden; uploads then require Entra auth + a Blob Data role."
+      }
+    }
+  },
+  "variables": {
+    "runbookName": "Tag-DefenderServers",
+    "scheduleStartTime": "[dateTimeAdd(parameters('baseTime'), 'PT15M')]",
+    "deployRunbookFromUri": "[not(empty(parameters('runbookContentUri')))]",
+    "storageBlobDataReaderRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "properties": {
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": "[parameters('allowSharedKeyAccess')]",
+        "networkAcls": {
+          "defaultAction": "Allow",
+          "bypass": "AzureServices"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}/{2}', parameters('storageAccountName'), 'default', parameters('containerName'))]",
+      "properties": {
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('automationAccountName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "sku": {
+          "name": "Basic"
+        },
+        "publicNetworkAccess": true
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/powerShell72Modules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), 'Az.Accounts')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Accounts"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/powerShell72Modules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), 'Az.Storage')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Storage"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/powerShell72Modules', parameters('automationAccountName'), 'Az.Accounts')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/powerShell72Modules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), 'ImportExcel')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/ImportExcel"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "condition": "[variables('deployRunbookFromUri')]",
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), variables('runbookName'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "runbookType": "PowerShell72",
+        "logVerbose": false,
+        "logProgress": false,
+        "description": "Applies Microsoft Defender for Endpoint device tags from Server_Tag_List.xlsx in blob storage.",
+        "publishContentLink": {
+          "uri": "[parameters('runbookContentUri')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/schedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('scheduleName'))]",
+      "properties": {
+        "frequency": "Hour",
+        "interval": 2,
+        "startTime": "[variables('scheduleStartTime')]",
+        "timeZone": "[parameters('scheduleTimeZone')]",
+        "description": "Runs the Defender tagging runbook every 2 hours."
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "condition": "[variables('deployRunbookFromUri')]",
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), guid(resourceGroup().id, parameters('automationAccountName'), variables('runbookName'), parameters('scheduleName')))]",
+      "properties": {
+        "runbook": {
+          "name": "[variables('runbookName')]"
+        },
+        "schedule": {
+          "name": "[parameters('scheduleName')]"
+        },
+        "parameters": {
+          "StorageAccountName": "[parameters('storageAccountName')]",
+          "ContainerName": "[parameters('containerName')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), variables('runbookName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('automationAccountName'), parameters('scheduleName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), variables('storageBlobDataReaderRoleId'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('storageBlobDataReaderRoleId')]",
+        "principalId": "[reference(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), '2023-11-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "automationAccountName": {
+      "type": "string",
+      "value": "[parameters('automationAccountName')]"
+    },
+    "managedIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), '2023-11-01', 'full').identity.principalId]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[parameters('storageAccountName')]"
+    },
+    "containerName": {
+      "type": "string",
+      "value": "[parameters('containerName')]"
+    },
+    "scheduleName": {
+      "type": "string",
+      "value": "[parameters('scheduleName')]"
+    },
+    "runbookDeployedFromUri": {
+      "type": "bool",
+      "value": "[variables('deployRunbookFromUri')]"
+    }
+  }
+}

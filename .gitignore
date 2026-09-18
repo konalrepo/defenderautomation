@@ -1,0 +1,7 @@
+# Real server inventories must never be committed - only the fake sample is allowed
+*.xlsx
+!samples/Sample_Server_Tag_List.xlsx
+
+# OS noise
+.DS_Store
+Thumbs.db
