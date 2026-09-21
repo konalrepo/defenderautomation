@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "8583522430800616474"
+      "templateHash": "9979781618417868425"
     }
   },
   "parameters": {
@@ -62,9 +62,9 @@
     },
     "runbookContentUri": {
       "type": "string",
-      "defaultValue": "",
+      "defaultValue": "https://raw.githubusercontent.com/konalrepo/defenderautomation/defendertag/runbook/Tag-DefenderServers.ps1",
       "metadata": {
-        "description": "Raw URL of Tag-DefenderServers.ps1 (e.g. GitHub raw). Leave empty to import the runbook locally with scripts/Deploy-Azure.ps1 instead."
+        "description": "Raw URL of Tag-DefenderServers.ps1. Prefilled with this repo/branch so the Deploy to Azure button publishes the runbook automatically. Deploy-Azure.ps1 passes an empty string to import the local file instead."
       }
     },
     "allowSharedKeyAccess": {

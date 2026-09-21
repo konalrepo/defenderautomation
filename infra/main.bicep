@@ -29,8 +29,8 @@ param scheduleTimeZone string = 'UTC'
 @description('Deployment timestamp - do not set; used to compute the schedule start time.')
 param baseTime string = utcNow('u')
 
-@description('Raw URL of Tag-DefenderServers.ps1 (e.g. GitHub raw). Leave empty to import the runbook locally with scripts/Deploy-Azure.ps1 instead.')
-param runbookContentUri string = ''
+@description('Raw URL of Tag-DefenderServers.ps1. Prefilled with this repo/branch so the Deploy to Azure button publishes the runbook automatically. Deploy-Azure.ps1 passes an empty string to import the local file instead.')
+param runbookContentUri string = 'https://raw.githubusercontent.com/konalrepo/defenderautomation/defendertag/runbook/Tag-DefenderServers.ps1'
 
 @description('Allow storage account key access. Set false to harden; uploads then require Entra auth + a Blob Data role.')
 param allowSharedKeyAccess bool = true

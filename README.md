@@ -74,16 +74,13 @@ tokens are cached; an initial 403 usually just means "wait").
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fkonalrepo%2Fdefenderautomation%2Fdefendertag%2Finfra%2Fazuredeploy.json)
 
-The button deploys `infra/azuredeploy.json` directly from this repository. Set the
-`runbookContentUri` parameter to
-
-```
-https://raw.githubusercontent.com/konalrepo/defenderautomation/defendertag/runbook/Tag-DefenderServers.ps1
-```
-
-so the template also publishes the runbook and links the schedule by itself (the same URL
-works as `-RunbookContentUri` for `Deploy-Azure.ps1`). Regenerate the ARM file after
-editing the Bicep:
+The button deploys `infra/azuredeploy.json` directly from this repository. The
+`runbookContentUri` parameter is **prefilled** with this repo/branch's raw runbook URL, so
+the template publishes the runbook and links the 2-hour schedule automatically — just set
+the resource group, region, and time zone, then deploy. Two follow-ups the template can't
+do: upload `Server_Tag_List.xlsx` to the container, and grant the managed identity the MDE
+`Machine.ReadWrite.All` permission (both covered in the deploy walkthrough). Regenerate the
+ARM file after editing the Bicep:
 
 ```bash
 az bicep build --file infra/main.bicep --outfile infra/azuredeploy.json
