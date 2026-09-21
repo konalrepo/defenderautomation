@@ -72,7 +72,7 @@ the `Every-2-Hours` schedule takes over.
 | `-StorageAccountName` | auto (`stdeftags<hash>`) | Must be globally unique |
 | `-ContainerName` | `defender-tags` | |
 | `-ScheduleTimeZone` | `Europe/Istanbul` | IANA (e.g. `Europe/Istanbul`) or Windows (e.g. `Turkey Standard Time`) ID — not a UTC offset like `UTC+3` |
-| `-RunbookContentUri` | *(empty)* | Raw URL of the runbook for template-based publish; empty = import the local file |
+| `-RunbookContentUri` | raw URL (this repo/branch) | Template publishes the runbook linked to the 7.4 environment; pass `''` to import the local file instead (then link it to the environment in the portal) |
 | `-TagListPath` | sample workbook | **Point this at your real list** |
 | `-SkipTagListUpload` | off | |
 
