@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "9979781618417868425"
+      "templateHash": "7947653062354701180"
     }
   },
   "parameters": {
@@ -48,9 +48,9 @@
     },
     "scheduleTimeZone": {
       "type": "string",
-      "defaultValue": "UTC",
+      "defaultValue": "Europe/Istanbul",
       "metadata": {
-        "description": "IANA or Windows time zone ID for the schedule."
+        "description": "Schedule time zone ID - an IANA ID (e.g. Europe/Istanbul) or a Windows ID (e.g. Turkey Standard Time), NOT a UTC offset like \"UTC+3\"."
       }
     },
     "baseTime": {
@@ -142,7 +142,7 @@
       "name": "[format('{0}/{1}', parameters('automationAccountName'), 'Az.Accounts')]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Accounts"
+          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Accounts/5.5.3"
         }
       },
       "dependsOn": [
@@ -155,7 +155,7 @@
       "name": "[format('{0}/{1}', parameters('automationAccountName'), 'Az.Storage')]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Storage"
+          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Storage/9.7.2"
         }
       },
       "dependsOn": [
@@ -169,11 +169,12 @@
       "name": "[format('{0}/{1}', parameters('automationAccountName'), 'ImportExcel')]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/ImportExcel"
+          "uri": "https://www.powershellgallery.com/api/v2/package/ImportExcel/7.8.10"
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/powerShell72Modules', parameters('automationAccountName'), 'Az.Storage')]"
       ]
     },
     {

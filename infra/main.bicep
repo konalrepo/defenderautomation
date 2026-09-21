@@ -23,8 +23,8 @@ param containerName string = 'defender-tags'
 @description('Name of the recurring schedule.')
 param scheduleName string = 'Every-2-Hours'
 
-@description('IANA or Windows time zone ID for the schedule.')
-param scheduleTimeZone string = 'UTC'
+@description('Schedule time zone ID - an IANA ID (e.g. Europe/Istanbul) or a Windows ID (e.g. Turkey Standard Time), NOT a UTC offset like "UTC+3".')
+param scheduleTimeZone string = 'Europe/Istanbul'
 
 @description('Deployment timestamp - do not set; used to compute the schedule start time.')
 param baseTime string = utcNow('u')
@@ -90,13 +90,17 @@ resource automationAccount 'Microsoft.Automation/automationAccounts@2023-11-01' 
   }
 }
 
-// PowerShell 7.2 runtime modules. Az.Storage depends on Az.Accounts.
+// PowerShell 7.2 runtime modules, pinned to specific versions for deterministic deploys.
+// Az.Storage depends on Az.Accounts; imports are serialized to avoid a race.
+// NOTE: Automation module import is ASYNCHRONOUS - the ARM deployment returns before the
+// import finishes. After deploying, wait until all three modules show 'Available' on the
+// Modules blade (runtime 7.2) before the first runbook run. Bump versions intentionally.
 resource azAccountsModule 'Microsoft.Automation/automationAccounts/powerShell72Modules@2023-11-01' = {
   parent: automationAccount
   name: 'Az.Accounts'
   properties: {
     contentLink: {
-      uri: 'https://www.powershellgallery.com/api/v2/package/Az.Accounts'
+      uri: 'https://www.powershellgallery.com/api/v2/package/Az.Accounts/5.5.3'
     }
   }
 }
@@ -106,7 +110,7 @@ resource azStorageModule 'Microsoft.Automation/automationAccounts/powerShell72Mo
   name: 'Az.Storage'
   properties: {
     contentLink: {
-      uri: 'https://www.powershellgallery.com/api/v2/package/Az.Storage'
+      uri: 'https://www.powershellgallery.com/api/v2/package/Az.Storage/9.7.2'
     }
   }
   dependsOn: [
@@ -119,9 +123,12 @@ resource importExcelModule 'Microsoft.Automation/automationAccounts/powerShell72
   name: 'ImportExcel'
   properties: {
     contentLink: {
-      uri: 'https://www.powershellgallery.com/api/v2/package/ImportExcel'
+      uri: 'https://www.powershellgallery.com/api/v2/package/ImportExcel/7.8.10'
     }
   }
+  dependsOn: [
+    azStorageModule
+  ]
 }
 
 // Deployed only when a public raw URL is provided (e.g. after pushing to GitHub).

@@ -29,7 +29,7 @@ param(
     [string]$StorageAccountName = '',
 
     [string]$ContainerName = 'defender-tags',
-    [string]$ScheduleTimeZone = 'UTC',
+    [string]$ScheduleTimeZone = 'Europe/Istanbul',
 
     # Raw URL of runbook/Tag-DefenderServers.ps1 (public repo). Empty = import the local file.
     [string]$RunbookContentUri = '',

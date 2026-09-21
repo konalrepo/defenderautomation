@@ -52,9 +52,15 @@ cd scripts
 
 Then open the Automation account → **Runbooks → Tag-DefenderServers → Test pane** and run once
 with `WHATIFMODE = true` to preview, once with `false` for the initial bulk tagging, and you're done —
-the `Every-2-Hours` schedule takes over. Wait for the module imports (Modules blade, runtime 7.2)
-to finish before the first test, and allow some time after the Graph grant (managed-identity
-tokens are cached; an initial 403 usually just means "wait").
+the `Every-2-Hours` schedule takes over.
+
+> **Important — wait for modules before the first run.** Automation module import is
+> asynchronous, so the deployment finishes *before* `Az.Accounts`, `Az.Storage`, and
+> `ImportExcel` are ready. On the **Modules** blade (filter runtime **7.2**) wait until all
+> three show **Available** before running the Test pane — otherwise the runbook fails at the
+> first `Az` call with *"module could not be loaded"*. A scheduled run that fires during
+> import fails harmlessly and succeeds on the next cycle. Also allow a few minutes after the
+> Graph grant — managed-identity tokens are cached, so an initial 403 just means "wait".
 
 ### Deploy script parameters
 
@@ -65,7 +71,7 @@ tokens are cached; an initial 403 usually just means "wait").
 | `-AutomationAccountName` | `aa-defender-tagging` | |
 | `-StorageAccountName` | auto (`stdeftags<hash>`) | Must be globally unique |
 | `-ContainerName` | `defender-tags` | |
-| `-ScheduleTimeZone` | `UTC` | IANA or Windows ID |
+| `-ScheduleTimeZone` | `Europe/Istanbul` | IANA (e.g. `Europe/Istanbul`) or Windows (e.g. `Turkey Standard Time`) ID — not a UTC offset like `UTC+3` |
 | `-RunbookContentUri` | *(empty)* | Raw URL of the runbook for template-based publish; empty = import the local file |
 | `-TagListPath` | sample workbook | **Point this at your real list** |
 | `-SkipTagListUpload` | off | |

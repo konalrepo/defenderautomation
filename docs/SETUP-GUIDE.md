@@ -91,7 +91,7 @@ The runbook parses `.xlsx` with the **ImportExcel** module (pure .NET, no Excel 
 
 1. Automation account → **Shared Resources → Modules → Add a module**.
 2. **Browse from gallery** → search `ImportExcel` → select it.
-3. **Runtime version: 7.2** → **Import**. Wait until status = Available.
+3. **Runtime version: 7.2** → **Import**. **Wait until Status = Available before running the runbook** — module import is asynchronous, and a not-yet-ready module fails the first `Az` call with *"module could not be loaded"*.
 4. In the same Modules list, filter runtime **7.2** and confirm **Az.Accounts**, **Az.Storage**
    (Az modules are imported by default in new accounts; import them from the gallery with
    runtime 7.2 if missing).
