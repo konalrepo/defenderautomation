@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "7947653062354701180"
+      "templateHash": "4181429938253183949"
     }
   },
   "parameters": {
@@ -73,6 +73,27 @@
       "metadata": {
         "description": "Allow storage account key access. Set false to harden; uploads then require Entra auth + a Blob Data role."
       }
+    },
+    "runtimeEnvironmentName": {
+      "type": "string",
+      "defaultValue": "ps74-defendertag",
+      "metadata": {
+        "description": "Name of the PowerShell 7.4 Runtime environment created for the runbook."
+      }
+    },
+    "azPackageVersion": {
+      "type": "string",
+      "defaultValue": "12.3.0",
+      "metadata": {
+        "description": "Az PowerShell default-package version for the 7.4 Runtime environment. Bump if Azure changes the supported default set."
+      }
+    },
+    "importExcelVersion": {
+      "type": "string",
+      "defaultValue": "7.8.10",
+      "metadata": {
+        "description": "ImportExcel version added as a custom package to the Runtime environment."
+      }
     }
   },
   "variables": {
@@ -137,54 +158,46 @@
       }
     },
     {
-      "type": "Microsoft.Automation/automationAccounts/powerShell72Modules",
-      "apiVersion": "2023-11-01",
-      "name": "[format('{0}/{1}', parameters('automationAccountName'), 'Az.Accounts')]",
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('runtimeEnvironmentName'))]",
+      "location": "[parameters('location')]",
       "properties": {
-        "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Accounts/5.5.3"
-        }
+        "runtime": {
+          "language": "PowerShell",
+          "version": "7.4"
+        },
+        "defaultPackages": {
+          "Az": "[parameters('azPackageVersion')]"
+        },
+        "description": "PowerShell 7.4 with Az (default) + ImportExcel for the Defender tagging runbook."
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
       ]
     },
     {
-      "type": "Microsoft.Automation/automationAccounts/powerShell72Modules",
-      "apiVersion": "2023-11-01",
-      "name": "[format('{0}/{1}', parameters('automationAccountName'), 'Az.Storage')]",
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/{2}', parameters('automationAccountName'), parameters('runtimeEnvironmentName'), 'ImportExcel')]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Storage/9.7.2"
+          "uri": "[format('https://www.powershellgallery.com/api/v2/package/ImportExcel/{0}', parameters('importExcelVersion'))]"
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
-        "[resourceId('Microsoft.Automation/automationAccounts/powerShell72Modules', parameters('automationAccountName'), 'Az.Accounts')]"
-      ]
-    },
-    {
-      "type": "Microsoft.Automation/automationAccounts/powerShell72Modules",
-      "apiVersion": "2023-11-01",
-      "name": "[format('{0}/{1}', parameters('automationAccountName'), 'ImportExcel')]",
-      "properties": {
-        "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/ImportExcel/7.8.10"
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
-        "[resourceId('Microsoft.Automation/automationAccounts/powerShell72Modules', parameters('automationAccountName'), 'Az.Storage')]"
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), parameters('runtimeEnvironmentName'))]"
       ]
     },
     {
       "condition": "[variables('deployRunbookFromUri')]",
       "type": "Microsoft.Automation/automationAccounts/runbooks",
-      "apiVersion": "2023-11-01",
+      "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}', parameters('automationAccountName'), variables('runbookName'))]",
       "location": "[parameters('location')]",
       "properties": {
-        "runbookType": "PowerShell72",
+        "runbookType": "PowerShell",
+        "runtimeEnvironment": "[parameters('runtimeEnvironmentName')]",
         "logVerbose": false,
         "logProgress": false,
         "description": "Applies Microsoft Defender for Endpoint device tags from Server_Tag_List.xlsx in blob storage.",
@@ -193,7 +206,8 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments/packages', parameters('automationAccountName'), parameters('runtimeEnvironmentName'), 'ImportExcel')]"
       ]
     },
     {

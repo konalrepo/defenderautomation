@@ -1,7 +1,8 @@
 // Defender device-tag automation - infrastructure
 // Deploys: storage account + container, Automation account (system-assigned MI),
-// PowerShell 7.2 modules, 2-hour schedule, runbook (optional, from URI),
-// and the Storage Blob Data Reader role assignment for the managed identity.
+// a PowerShell 7.4 Runtime environment (Az default package + ImportExcel), a 2-hour
+// schedule, the runbook (optional, from URI) linked to that environment, and the
+// Storage Blob Data Reader role assignment for the managed identity.
 //
 // The Entra app-role grant (WindowsDefenderATP / Machine.ReadWrite.All) cannot be
 // expressed in ARM - run scripts/Grant-ManagedIdentity-MDEPermission.ps1 once after deploy.
@@ -34,6 +35,15 @@ param runbookContentUri string = 'https://raw.githubusercontent.com/konalrepo/de
 
 @description('Allow storage account key access. Set false to harden; uploads then require Entra auth + a Blob Data role.')
 param allowSharedKeyAccess bool = true
+
+@description('Name of the PowerShell 7.4 Runtime environment created for the runbook.')
+param runtimeEnvironmentName string = 'ps74-defendertag'
+
+@description('Az PowerShell default-package version for the 7.4 Runtime environment. Bump if Azure changes the supported default set.')
+param azPackageVersion string = '12.3.0'
+
+@description('ImportExcel version added as a custom package to the Runtime environment.')
+param importExcelVersion string = '7.8.10'
 
 var runbookName = 'Tag-DefenderServers'
 var scheduleStartTime = dateTimeAdd(baseTime, 'PT15M')
@@ -90,55 +100,45 @@ resource automationAccount 'Microsoft.Automation/automationAccounts@2023-11-01' 
   }
 }
 
-// PowerShell 7.2 runtime modules, pinned to specific versions for deterministic deploys.
-// Az.Storage depends on Az.Accounts; imports are serialized to avoid a race.
-// NOTE: Automation module import is ASYNCHRONOUS - the ARM deployment returns before the
-// import finishes. After deploying, wait until all three modules show 'Available' on the
-// Modules blade (runtime 7.2) before the first runbook run. Bump versions intentionally.
-resource azAccountsModule 'Microsoft.Automation/automationAccounts/powerShell72Modules@2023-11-01' = {
+// PowerShell 7.4 Runtime environment. Az ships as a built-in default package (compatible
+// with 7.4), so there's no manual Az.Accounts/Az.Storage import and no async-import race -
+// only ImportExcel is added as a custom package. PowerShell 7.1/7.2 retire on 2026-09-30.
+resource runtimeEnvironment 'Microsoft.Automation/automationAccounts/runtimeEnvironments@2024-10-23' = {
   parent: automationAccount
-  name: 'Az.Accounts'
+  name: runtimeEnvironmentName
+  location: location
   properties: {
-    contentLink: {
-      uri: 'https://www.powershellgallery.com/api/v2/package/Az.Accounts/5.5.3'
+    runtime: {
+      language: 'PowerShell'
+      version: '7.4'
     }
+    defaultPackages: {
+      Az: azPackageVersion
+    }
+    description: 'PowerShell 7.4 with Az (default) + ImportExcel for the Defender tagging runbook.'
   }
 }
 
-resource azStorageModule 'Microsoft.Automation/automationAccounts/powerShell72Modules@2023-11-01' = {
-  parent: automationAccount
-  name: 'Az.Storage'
-  properties: {
-    contentLink: {
-      uri: 'https://www.powershellgallery.com/api/v2/package/Az.Storage/9.7.2'
-    }
-  }
-  dependsOn: [
-    azAccountsModule
-  ]
-}
-
-resource importExcelModule 'Microsoft.Automation/automationAccounts/powerShell72Modules@2023-11-01' = {
-  parent: automationAccount
+resource importExcelPackage 'Microsoft.Automation/automationAccounts/runtimeEnvironments/packages@2024-10-23' = {
+  parent: runtimeEnvironment
   name: 'ImportExcel'
   properties: {
     contentLink: {
-      uri: 'https://www.powershellgallery.com/api/v2/package/ImportExcel/7.8.10'
+      uri: 'https://www.powershellgallery.com/api/v2/package/ImportExcel/${importExcelVersion}'
     }
   }
-  dependsOn: [
-    azStorageModule
-  ]
 }
 
 // Deployed only when a public raw URL is provided (e.g. after pushing to GitHub).
 // For private repos / first deploy, Deploy-Azure.ps1 imports the local file instead.
-resource runbook 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' = if (deployRunbookFromUri) {
+// runbookType 'PowerShell' + runtimeEnvironment links the runbook to the 7.4 environment.
+resource runbook 'Microsoft.Automation/automationAccounts/runbooks@2024-10-23' = if (deployRunbookFromUri) {
   parent: automationAccount
   name: runbookName
   location: location
   properties: {
-    runbookType: 'PowerShell72'
+    runbookType: 'PowerShell'
+    runtimeEnvironment: runtimeEnvironmentName
     logVerbose: false
     logProgress: false
     description: 'Applies Microsoft Defender for Endpoint device tags from Server_Tag_List.xlsx in blob storage.'
@@ -146,6 +146,9 @@ resource runbook 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' =
       uri: runbookContentUri
     }
   }
+  dependsOn: [
+    importExcelPackage
+  ]
 }
 
 resource schedule 'Microsoft.Automation/automationAccounts/schedules@2023-11-01' = {

@@ -9,7 +9,7 @@ reported and retried automatically on later runs. Tags are only added, never rem
 
 | File | Purpose |
 |---|---|
-| `runbook/Tag-DefenderServers.ps1` | The runbook (PowerShell 7.2) |
+| `runbook/Tag-DefenderServers.ps1` | The runbook (PowerShell 7.4) |
 | `scripts/Grant-ManagedIdentity-MDEPermission.ps1` | One-time grant of `Machine.ReadWrite.All` to the managed identity |
 | `scripts/Deploy-Azure.ps1` | Scripted deployment (alternative to the manual steps below) |
 | `infra/main.bicep` / `infra/azuredeploy.json` | Infrastructure as code (alternative to manual Steps 1, 2, 3b, 4, 7) |
@@ -85,31 +85,26 @@ Entra credentials + Blob Data Reader is the documented way to read blobs
 
 Source: <https://learn.microsoft.com/en-us/azure/storage/blobs/authorize-data-operations-powershell>
 
-## Step 4 — Import the ImportExcel module (runtime 7.2)
+## Step 4 — Create a PowerShell 7.4 Runtime environment (Az + ImportExcel)
 
-The runbook parses `.xlsx` with the **ImportExcel** module (pure .NET, no Excel needed).
+PowerShell 7.1 and 7.2 retire on 2026-09-30, and modern Az doesn't load cleanly on the 7.2
+runtime (you get *"module could not be loaded"*). Run the runbook on **PowerShell 7.4** via a
+Runtime environment, where **Az is a built-in default package** and only **ImportExcel** (used
+to parse `.xlsx`) is added as a custom package.
 
-1. Automation account → **Shared Resources → Modules → Add a module**.
-2. **Browse from gallery** → search `ImportExcel` → select it.
-3. **Runtime version: 7.2** → **Import**. **Wait until Status = Available before running the runbook** — module import is asynchronous, and a not-yet-ready module fails the first `Az` call with *"module could not be loaded"*.
-4. In the same Modules list, filter runtime **7.2** and confirm **Az.Accounts**, **Az.Storage**
-   (Az modules are imported by default in new accounts; import them from the gallery with
-   runtime 7.2 if missing).
+1. Automation account → **Overview** → **Try Runtime environment experience**.
+2. **Process Automation → Runtime Environments → Create**:
+   - **Name** e.g. `ps74-defendertag`; **Language** PowerShell; **Runtime version 7.4**.
+   - **Packages** tab: the **Az** package is included by default. **Add from gallery** →
+     `ImportExcel` → add.
+   - **Review + Create**, then wait a few minutes for the ImportExcel package to provision.
 
-PowerShell alternative:
-
-```powershell
-New-AzAutomationModule -AutomationAccountName 'aa-defender-tagging' -ResourceGroupName '<rg>' `
-  -Name ImportExcel -RuntimeVersion 7.2 `
-  -ContentLinkUri 'https://www.powershellgallery.com/api/v2/package/ImportExcel'
-```
-
-Source: <https://learn.microsoft.com/en-us/azure/automation/shared-resources/modules>
+Source: <https://learn.microsoft.com/en-us/azure/automation/manage-runtime-environment>
 
 ## Step 5 — Create the runbook
 
 1. Automation account → **Process Automation → Runbooks → Create a runbook**.
-2. Name `Tag-DefenderServers`, type **PowerShell**, **runtime version 7.2** → Create.
+2. Name `Tag-DefenderServers`, type **PowerShell**, and under **Runtime environment** select the `ps74-defendertag` environment from Step 4 → Create.
 3. Paste the full content of `Tag-DefenderServers.ps1` into the editor → **Save**.
 
 Runbook parameters (defaults are set in the script):

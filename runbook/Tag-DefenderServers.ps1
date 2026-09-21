@@ -3,7 +3,7 @@
     Applies Microsoft Defender for Endpoint device tags from an Excel list (Server | Tag).
 
 .DESCRIPTION
-    Runs in Azure Automation (PowerShell 7.2 runbook) under the account's system-assigned
+    Runs in Azure Automation (PowerShell 7.4 runbook) under the account's system-assigned
     managed identity. Downloads Server_Tag_List.xlsx from blob storage, matches each
     hostname against onboarded MDE devices, and adds the listed tag to every matching
     device that doesn't already have it. Hostnames not found in MDE are reported and

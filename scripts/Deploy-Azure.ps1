@@ -4,9 +4,10 @@
 
 .DESCRIPTION
     Creates the resource group (if needed), deploys infra/main.bicep (falls back to the
-    compiled infra/azuredeploy.json when the Bicep CLI isn't installed), imports and
-    publishes the runbook from the local file when no public content URI is given,
-    links it to the 2-hour schedule, and uploads the tag list workbook to blob storage.
+    compiled infra/azuredeploy.json when the Bicep CLI isn't installed) - which provisions a
+    PowerShell 7.4 Runtime environment (Az + ImportExcel) and, by default, publishes the
+    runbook linked to it and to the 2-hour schedule - then uploads the tag list workbook to
+    blob storage. Pass -RunbookContentUri '' to import the runbook from the local file instead.
 
     Requires Az PowerShell modules (Az.Accounts, Az.Resources, Az.Automation, Az.Storage)
     and an authenticated session: Connect-AzAccount [+ Set-AzContext for the subscription].
@@ -31,8 +32,11 @@ param(
     [string]$ContainerName = 'defender-tags',
     [string]$ScheduleTimeZone = 'Europe/Istanbul',
 
-    # Raw URL of runbook/Tag-DefenderServers.ps1 (public repo). Empty = import the local file.
-    [string]$RunbookContentUri = '',
+    # Raw URL of runbook/Tag-DefenderServers.ps1. Default = this repo/branch, so the template
+    # publishes the runbook already linked to the 7.4 Runtime environment. Pass '' to import the
+    # local file instead (private/offline repos); that runbook is NOT auto-linked to the 7.4
+    # environment and must be linked in the portal afterwards.
+    [string]$RunbookContentUri = 'https://raw.githubusercontent.com/konalrepo/defenderautomation/defendertag/runbook/Tag-DefenderServers.ps1',
 
     # Workbook to upload as Server_Tag_List.xlsx. Defaults to the sample - replace with your real list.
     [string]$TagListPath = (Join-Path $PSScriptRoot '..' 'samples' 'Sample_Server_Tag_List.xlsx'),
@@ -88,6 +92,9 @@ if (-not $RunbookContentUri) {
     $null = Import-AzAutomationRunbook -ResourceGroupName $ResourceGroupName `
         -AutomationAccountName $AutomationAccountName -Name $runbookName `
         -Path $runbookPath -Type PowerShell72 -Published -Force
+    Write-Warning ("Locally-imported runbook is NOT linked to the 7.4 Runtime environment. " +
+        "In the portal: Runbooks > $runbookName > Update Runtime Environment > select " +
+        "'ps74-defendertag', or the runbook fails with 'module could not be loaded'.")
 
     $linked = Get-AzAutomationScheduledRunbook -ResourceGroupName $ResourceGroupName `
         -AutomationAccountName $AutomationAccountName -RunbookName $runbookName `
@@ -132,4 +139,5 @@ Write-Host 'Remaining one-time step (needs Global Admin / Privileged Role Admin)
 Write-Host "  ./Grant-ManagedIdentity-MDEPermission.ps1 -ManagedIdentityObjectId $principalId"
 Write-Host ''
 Write-Host 'Then test: Automation account > Runbooks > Tag-DefenderServers > Test pane (WHATIFMODE = true).'
-Write-Host 'Note: wait for the Az.Accounts/Az.Storage/ImportExcel module imports to finish (Modules blade) before testing.'
+Write-Host "Note: the template created the 'ps74-defendertag' PowerShell 7.4 Runtime environment (Az built in + ImportExcel)."
+Write-Host '      Allow a few minutes for the ImportExcel package to finish provisioning before testing.'

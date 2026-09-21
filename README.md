@@ -1,7 +1,7 @@
 # Defender Device-Tag Automation
 
 Scheduled Azure Automation solution that applies **Microsoft Defender for Endpoint device tags**
-from an Excel list. Every 2 hours a PowerShell 7.2 runbook downloads `Server_Tag_List.xlsx`
+from an Excel list. Every 2 hours a PowerShell 7.4 runbook downloads `Server_Tag_List.xlsx`
 (columns `Server` | `Tag`) from blob storage, matches each hostname against onboarded MDE
 devices, and adds the listed tag to every matching device that doesn't already have it.
 Hostnames not yet visible in MDE are reported and retried automatically on later runs.
@@ -22,9 +22,9 @@ Server_Tag_List.xlsx ──▶ Blob Storage ──▶ Automation runbook (manage
 
 | Path | Purpose |
 |---|---|
-| `infra/main.bicep` | All Azure resources: storage + container, Automation account (system MI), PS 7.2 modules, 2-hour schedule, role assignment, optional runbook-from-URI |
+| `infra/main.bicep` | All Azure resources: storage + container, Automation account (system MI), PowerShell 7.4 Runtime environment (Az + ImportExcel), 2-hour schedule, role assignment, optional runbook-from-URI |
 | `infra/azuredeploy.json` | Compiled ARM template (`az bicep build`) for portal / one-click deployment |
-| `runbook/Tag-DefenderServers.ps1` | The runbook (PowerShell 7.2) |
+| `runbook/Tag-DefenderServers.ps1` | The runbook (PowerShell 7.4) |
 | `scripts/Deploy-Azure.ps1` | End-to-end deployment: RG → template → runbook import → schedule link → workbook upload |
 | `scripts/Grant-ManagedIdentity-MDEPermission.ps1` | One-time Entra grant: WindowsDefenderATP `Machine.ReadWrite.All` to the managed identity |
 | `samples/Sample_Server_Tag_List.xlsx` | Workbook format example (fake data) |
@@ -54,13 +54,13 @@ Then open the Automation account → **Runbooks → Tag-DefenderServers → Test
 with `WHATIFMODE = true` to preview, once with `false` for the initial bulk tagging, and you're done —
 the `Every-2-Hours` schedule takes over.
 
-> **Important — wait for modules before the first run.** Automation module import is
-> asynchronous, so the deployment finishes *before* `Az.Accounts`, `Az.Storage`, and
-> `ImportExcel` are ready. On the **Modules** blade (filter runtime **7.2**) wait until all
-> three show **Available** before running the Test pane — otherwise the runbook fails at the
-> first `Az` call with *"module could not be loaded"*. A scheduled run that fires during
-> import fails harmlessly and succeeds on the next cycle. Also allow a few minutes after the
-> Graph grant — managed-identity tokens are cached, so an initial 403 just means "wait".
+> **Important — let the runtime environment finish provisioning.** The template creates a
+> **PowerShell 7.4 Runtime environment** with **Az built in** and **ImportExcel** added as a
+> package. Az needs no waiting, but the ImportExcel package takes a few minutes to provision —
+> give the Runtime environment a moment to finish before the first Test run. A scheduled run
+> that fires during provisioning fails harmlessly and succeeds on the next cycle. Also allow a
+> few minutes after the Graph grant — managed-identity tokens are cached, so an initial 403
+> just means "wait".
 
 ### Deploy script parameters
 
